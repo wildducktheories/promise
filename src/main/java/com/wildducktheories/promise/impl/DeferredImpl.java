@@ -223,9 +223,7 @@ public class DeferredImpl<P, F> implements Deferred<P, F>, Promise<P,F> {
 		synchronized (this) {
 			switch (state) {
 			case PENDING:
-				final DoneCallback<P> cb = callback;
-				addCallbacks(cb, null);
-				addCallbacks(null, callback);
+				addCallbacks(callback, callback);
 				break;
 			case DONE:
 				notifyDone(callback, resolution);
@@ -233,7 +231,6 @@ public class DeferredImpl<P, F> implements Deferred<P, F>, Promise<P,F> {
 			case FAILED:
 				notifyFail(callback, rejection);
 				break;
-			default:
 			}
 		}
 		
