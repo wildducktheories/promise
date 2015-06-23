@@ -273,23 +273,11 @@ public class DeferredImpl<P, F> implements Deferred<P, F>, Promise<P,F> {
 		failCallbacks.clear();
 	}
 
-	private void notifyDone(final DoneCallback<P> cb, final P p) {
-		try {
-			cb.onDone(p);
-		} catch (RuntimeException r) {
-			handleRuntimeException(r);
-		}			
+	protected void notifyDone(final DoneCallback<P> cb, final P p) {
+		cb.onDone(p);
 	}
 	
-	private void notifyFail(final FailCallback<F> cb, final F f) {
-		try {
-			cb.onFail(f);
-		} catch (RuntimeException r) {
-			handleRuntimeException(r);
-		}
-	}
-	
-	protected void handleRuntimeException(RuntimeException r) {
-		r.printStackTrace(System.err);
-	}
+	protected void notifyFail(final FailCallback<F> cb, final F f) {
+		cb.onFail(f);
+	}	
 }
