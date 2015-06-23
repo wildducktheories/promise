@@ -21,7 +21,7 @@ public class PromiseAPITest {
 	 * @throws InterruptedException 
 	 */
 	@Test
-	public void testResolved() throws InterruptedException {
+	public void testResolvedBefore() throws InterruptedException {
 		final Object solution = new Object();
 		final Object failure = new Object();
 		final Object[] results = new Object[]{null, null};
@@ -62,12 +62,63 @@ public class PromiseAPITest {
 		Assert.assertSame("fail not called", failure, failures[1]);	
 		Assert.assertSame("thread is same", Thread.currentThread(), threads[0]);
 	}
+	
+	/**
+	 * Test that a pre-resolved promise is delivered to the DoneCallback and to the CompletionCallback
+	 * @throws InterruptedException 
+	 */
+	@Test
+	public void testResolvedAfter() throws InterruptedException {
+		final Object solution = new Object();
+		final Object failure = new Object();
+		final Object[] results = new Object[]{null, null};
+		final Object[] failures = new Object[]{failure, failure};
+		final Thread[] threads = new Thread[] { null };
+		
+		final Deferred<Object, Object> deferred = PromiseAPI.get().deferred();
+		final Promise<Object, Object> promise = deferred.promise();
 
+		promise.done(new DoneCallback<Object>() {
+				
+			@Override
+			public void onDone(Object p) {
+				results[0] = p;
+				threads[0] = Thread.currentThread();
+			}
+		}).fail(new FailCallback<Object>() {
+				
+			@Override
+			public void onFail(Object f) {
+				failures[0] = f;
+			}
+		}).complete(new CompletionCallback<Object, Object>() {
+
+			@Override
+			public void onDone(Object p) {
+				results[1] = p;
+			}
+
+			@Override
+			public void onFail(Object f) {
+				failures[1] = f;
+			}
+			
+		});	
+		deferred.resolve(solution);
+		Assert.assertSame("done called", solution, results[0]);
+		Assert.assertSame("fail not called", failure, failures[0]);		
+		Assert.assertSame("done called", solution, results[1]);
+		Assert.assertSame("fail not called", failure, failures[1]);	
+		Assert.assertSame("thread is same", Thread.currentThread(), threads[0]);
+	}
+
+	
+	
 	/**
 	 * Test that a pre-rejected promise is delivered to the FailCallback and to the CompletionCallback
 	 */
 	@Test
-	public void testRejected() {
+	public void testBeforeRejected() {
 		final Object solution = new Object();
 		final Object failure = new Object();
 		final Object[] results = new Object[]{solution, solution};
@@ -103,6 +154,55 @@ public class PromiseAPITest {
 					failures[1] = f;
 				}
 		});
+		Assert.assertSame("done not called", solution, results[0]);
+		Assert.assertSame("fail called", failure, failures[0]);		
+		Assert.assertSame("done not called", solution, results[1]);
+		Assert.assertSame("fail called", failure, failures[1]);		
+		Assert.assertSame("thread is same", Thread.currentThread(), threads[0]);
+	}
+
+	/**
+	 * Test that a pre-rejected promise is delivered to the FailCallback and to the CompletionCallback
+	 */
+	@Test
+	public void testAfterRejected() {
+		final Object solution = new Object();
+		final Object failure = new Object();
+		final Object[] results = new Object[]{solution, solution};
+		final Object[] failures = new Object[]{null, null};
+		final Thread[] threads = new Thread[] { null };
+
+		final Deferred<Object, Object> deferred = PromiseAPI.get().deferred();
+		final Promise<Object, Object> promise = deferred.promise();
+		promise
+			.done(new DoneCallback<Object>() {
+			
+				@Override
+				public void onDone(Object p) {
+					results[0] = p;
+				}
+				})
+			.fail(new FailCallback<Object>() {
+			
+				@Override
+				public void onFail(Object f) {
+					threads[0] = Thread.currentThread();
+					failures[0] = f;
+				}
+				})
+			.complete(new CompletionCallback<Object, Object>() {
+	
+				@Override
+				public void onDone(Object p) {
+					results[1] = p;
+				}
+	
+				@Override
+				public void onFail(Object f) {
+					failures[1] = f;
+				}
+		});
+		deferred.reject(failure);
 		Assert.assertSame("done not called", solution, results[0]);
 		Assert.assertSame("fail called", failure, failures[0]);		
 		Assert.assertSame("done not called", solution, results[1]);
@@ -443,4 +543,223 @@ public class PromiseAPITest {
 		deferred.reject(rejection);
 	   Assert.assertSame("rejection == fail[0]", rejection, fail[0]);	
 	}
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseAfterResolution() {
+		final boolean[] done = new boolean[] {false};
+		PromiseAPI
+			.get()
+			.resolved(false, Boolean.class, Exception.class)
+			.thenPromise(
+					new Filter<Boolean, Promise<Boolean,Exception>>() {
+						@Override
+						public Promise<Boolean,Exception> filter(Boolean p) {
+							return PromiseAPI.get().resolved(!p, Boolean.class, Exception.class);
+						}
+					}
+			).done(new DoneCallback<Boolean>() {				
+				@Override
+				public void onDone(Boolean p) {
+					done[0] = p;
+				}
+			});
+	   Assert.assertTrue("done[0]", done[0]);	
+	}
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseBeforeResolution() {
+		final boolean[] done = new boolean[] {false};
+		final Deferred<Boolean, Exception> deferred = PromiseAPI
+			.get()
+			.deferred();
+		
+			deferred
+				.promise()
+				.thenPromise(
+						new Filter<Boolean, Promise<Boolean,Exception>>() {
+							@Override
+							public Promise<Boolean,Exception> filter(Boolean p) {
+								return PromiseAPI.get().resolved(!p, Boolean.class, Exception.class);
+							}
+						})
+				.done(new DoneCallback<Boolean>() {				
+						@Override
+						public void onDone(Boolean p) {
+							done[0] = p;
+						}
+					});
+			
+			deferred.resolve(false);
+			Assert.assertTrue("done[0]", done[0]);	
+	}
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseAfterRejection() {
+		final Exception[] fail = new Exception[] {null};
+		final Exception rejection = new Exception();
+		PromiseAPI
+			.get()
+			.rejected(rejection, Boolean.class, Exception.class)
+			.thenPromise(
+				new Filter<Boolean, Promise<Boolean,Exception>>() {
+					@Override
+					public Promise<Boolean,Exception> filter(Boolean p) {
+						return PromiseAPI.get().resolved(!p, Boolean.class, Exception.class);
+					}
+				}
+			).fail(new FailCallback<Exception>() {				
+				@Override
+				public void onFail(Exception f) {
+					fail[0] = f;
+				}
+			});
+	   Assert.assertSame("rejection == fail[0]", rejection, fail[0]);	
+	}
+
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseBeforeRejection() {
+		final Exception[] fail = new Exception[] {null};
+		final Exception rejection = new Exception();
+		final Deferred<Boolean, Exception> deferred = PromiseAPI.get().deferred();
+		
+		deferred
+			.promise()
+			.thenPromise(
+				new Filter<Boolean, Promise<Boolean,Exception>>() {
+					@Override
+					public Promise<Boolean,Exception> filter(Boolean p) {
+						return PromiseAPI.get().resolved(!p, Boolean.class, Exception.class);
+					}
+				}
+			).fail(new FailCallback<Exception>() {				
+					@Override
+					public void onFail(Exception f) {
+						fail[0] = f;
+					}
+				});
+		
+		deferred.reject(rejection);
+	   Assert.assertSame("rejection == fail[0]", rejection, fail[0]);	
+	}
+
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseRejected() {
+		final Exception[] fail = new Exception[] {null};
+		final Exception rejection = new Exception();
+		PromiseAPI
+			.get()
+			.rejected(rejection, Boolean.class, Exception.class)
+			.thenPromise(
+				new Filter<Boolean, Promise<Boolean,Exception>>() {
+					@Override
+					public Promise<Boolean,Exception> filter(Boolean p) {
+						return PromiseAPI.get().resolved(!p, Boolean.class, Exception.class);
+					}
+				}
+			).fail(new FailCallback<Exception>() {				
+				@Override
+				public void onFail(Exception f) {
+					fail[0] = f;
+				}
+			});
+	   Assert.assertSame("rejection == fail[0]", rejection, fail[0]);	
+	}
+
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseBeforeResolutionThenFailure() {
+		final boolean[] done = new boolean[] {false};
+		final RuntimeException failure = new RuntimeException();
+		final Exception[] exceptions = new Exception[] { null };
+		final Deferred<Boolean, Exception> deferred = PromiseAPI
+			.get()
+			.deferred();
+		
+			deferred
+				.promise()
+				.thenPromise(
+						new Filter<Boolean, Promise<Boolean,Exception>>() {
+							@Override
+							public Promise<Boolean,Exception> filter(Boolean p) {
+								return PromiseAPI.get().rejected(failure, Boolean.class, Exception.class);
+							}
+						})
+				.done(new DoneCallback<Boolean>() {				
+						@Override
+						public void onDone(Boolean p) {
+							done[0] = p;
+						}
+					})
+				.fail(new FailCallback<Exception>(){
+
+					@Override
+					public void onFail(Exception f) {
+						exceptions[0] = f;
+						
+					}
+					
+				});
+			
+			deferred.resolve(false);
+			Assert.assertFalse("done[0]", done[0]);	
+			Assert.assertSame("fail receives then failure", failure, exceptions[0]); 
+	}
+
+	/**
+	 * Test that then() transforms a value.
+	 */
+	@Test
+	public void testThenPromiseAfterResolutionThenFailure() {
+		final boolean[] done = new boolean[] {false};
+		final RuntimeException failure = new RuntimeException();
+		final Exception[] exceptions = new Exception[] { null };
+		final Deferred<Boolean, Exception> deferred = PromiseAPI
+			.get()
+			.deferred();
+		
+			deferred.resolve(false);
+			
+			deferred
+				.promise()
+				.thenPromise(
+						new Filter<Boolean, Promise<Boolean,Exception>>() {
+							@Override
+							public Promise<Boolean,Exception> filter(Boolean p) {
+								return PromiseAPI.get().rejected(failure, Boolean.class, Exception.class);
+							}
+						})
+				.done(new DoneCallback<Boolean>() {				
+						@Override
+						public void onDone(Boolean p) {
+							done[0] = p;
+						}
+					})
+				.fail(new FailCallback<Exception>(){
+
+					@Override
+					public void onFail(Exception f) {
+						exceptions[0] = f;
+						
+					}
+					
+				});
+			
+			Assert.assertFalse("done[0]", done[0]);	
+			Assert.assertSame("fail receives then failure", failure, exceptions[0]); 
+	}
+	
 }
