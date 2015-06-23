@@ -79,7 +79,7 @@
 							return Directive.SYNC;
 						}
 					}			
-				}, Directive.ASYNC);
+				}, Directive.SYNC);
 				return deferred.promise();
 			} catch (Exception e) {
 				return deferred.reject(handle(e)).promise();
