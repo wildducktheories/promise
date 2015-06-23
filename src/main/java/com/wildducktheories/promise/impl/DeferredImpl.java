@@ -194,7 +194,7 @@ public class DeferredImpl<P, F> implements Deferred<P, F>, Promise<P,F> {
 				addCallbacks(cb, null);
 				break;
 			case DONE:
-				notifyDone(new SyncCompletionTasklet<>(SchedulerAPI.get().getScheduler(), callback, null), resolution);
+				notifyDone(new SyncCompletionTasklet<P,F>(SchedulerAPI.get().getScheduler(), callback, null), resolution);
 			default:
 			}
 		}
@@ -209,7 +209,7 @@ public class DeferredImpl<P, F> implements Deferred<P, F>, Promise<P,F> {
 				addCallbacks(null, callback);
 				break;
 			case FAILED:
-				notifyFail(new SyncCompletionTasklet<>(SchedulerAPI.get().getScheduler(), null, callback), rejection);
+				notifyFail(new SyncCompletionTasklet<P,F>(SchedulerAPI.get().getScheduler(), null, callback), rejection);
 				break;
 			default:
 			}
